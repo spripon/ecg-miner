@@ -1,5 +1,12 @@
 streamlit
-neurokit2
+opencv-python
 numpy
-pandas
 matplotlib
+scipy
+torch
+torchvision
+pandas
+scikit-learn
+Pillow
+tensorflow
+easyocr
