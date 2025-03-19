@@ -5,7 +5,6 @@ import torch
 import torchvision.transforms as transforms
 from PIL import Image
 import matplotlib.pyplot as plt
-import matplotlib.animation as animation
 
 # -------------- Interface utilisateur --------------
 st.title("📈 ECG Miner - Analyse AI des ECG 12 Dérivations")
@@ -25,30 +24,17 @@ uploaded_file = st.file_uploader("📸 Téléchargez une image de votre ECG (JPG
 
 # -------------- Traitement de l'image avec OpenCV --------------
 def preprocess_ecg_image(image):
-    """Applique un traitement OpenCV pour améliorer l’extraction des dérivations ECG."""
+    """Améliore la qualité de l’image ECG sans perdre d’informations."""
     # Convertir en niveaux de gris
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-    # Appliquer un filtre Gaussien pour réduire le bruit
-    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+    # Égalisation d’histogramme pour améliorer le contraste
+    enhanced = cv2.equalizeHist(gray)
 
-    # Détection des contours avec un seuillage adaptatif
-    edges = cv2.Canny(blurred, 50, 150)
-
-    # Détection des lignes avec Hough Transform
-    lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=100, minLineLength=50, maxLineGap=10)
-
-    # Création d’un masque pour aligner et nettoyer l'image
-    mask = np.zeros_like(gray)
-    if lines is not None:
-        for line in lines:
-            x1, y1, x2, y2 = line[0]
-            cv2.line(mask, (x1, y1), (x2, y2), 255, 2)
-
-    # Inversion du masque pour améliorer la segmentation
-    final_image = cv2.bitwise_and(gray, mask)
-
-    return final_image
+    # Seuillage adaptatif pour mieux extraire les tracés ECG
+    binary = cv2.adaptiveThreshold(enhanced, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
+                                   cv2.THRESH_BINARY_INV, 11, 4)
+    return binary
 
 # -------------- Extraction des dérivations ECG --------------
 def extract_ecg_leads(image, ecg_format):
@@ -92,28 +78,6 @@ def extract_ecg_leads(image, ecg_format):
 
     return leads
 
-# -------------- Animation du Tracé ECG --------------
-def animate_ecg(signal):
-    """Anime le tracé ECG pour simuler un signal dynamique."""
-    fig, ax = plt.subplots()
-    x_data, y_data = [], []
-    line, = ax.plot([], [], "r-", animated=True)
-
-    def init():
-        ax.set_xlim(0, len(signal))
-        ax.set_ylim(np.min(signal) - 0.1, np.max(signal) + 0.1)
-        return line,
-
-    def update(frame):
-        x_data.append(frame)
-        y_data.append(signal[frame])
-        line.set_data(x_data, y_data)
-        return line,
-
-    ani = animation.FuncAnimation(fig, update, frames=len(signal), init_func=init, blit=True, interval=10)
-
-    st.pyplot(fig)
-
 # -------------- Exécution du Code --------------
 if uploaded_file is not None:
     file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
@@ -137,8 +101,3 @@ if uploaded_file is not None:
         ax.axis("off")
 
     st.pyplot(fig)
-
-    # Animation ECG
-    st.subheader("📊 Animation du Tracé ECG")
-    lead_selected = st.selectbox("Sélectionnez une dérivation à animer", list(leads.keys()))
-    animate_ecg(leads[lead_selected])
